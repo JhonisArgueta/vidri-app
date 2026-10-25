@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vidri | Inventario</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f0fdf4;
+      font-family: Arial, sans-serif;
+      color: #14532d;
+    }
+    header {
+      background: #15803d;
+      color: white;
+      padding: 20px 6%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    main { max-width: 1000px; margin: 35px auto; padding: 20px; }
+    .card {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      margin-bottom: 22px;
+      box-shadow: 0 3px 15px #0001;
+    }
+    input {
+      padding: 11px;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      margin: 5px;
+    }
+    button {
+      background: #16a34a;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 11px 17px;
+      cursor: pointer;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 13px;
+      text-align: left;
+      border-bottom: 1px solid #dcfce7;
+    }
+    th { background: #f0fdf4; }
+    #mensaje { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Vidri | Gestión de inventario</strong>
+    <button id="salir">Cerrar sesión</button>
+  </header>
+
+  <main>
+    <h1>Inventario de materiales</h1>
+    <p>Python + Flask + MySQL | Kubernetes PaaS</p>
+
+    <div class="card">
+      <h2>Registrar material</h2>
+      <form id="productoForm">
+        <input name="nombre" placeholder="Nombre del material" required>
+        <input name="precio" type="number" step="0.01" min="0"
+               placeholder="Precio ($)" required>
+        <button type="submit">Guardar material</button>
+      </form>
+      <p id="mensaje"></p>
+    </div>
+
+    <div class="card">
+      <h2>Materiales registrados</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Material</th><th>Precio</th></tr>
+        </thead>
+        <tbody id="productos"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    async function cargarProductos() {
+      const response = await fetch("/api/productos");
+
+      if (response.status === 401) {
+        location.replace("/");
+        return;
+      }
+
+      if (!response.ok) {
+        document.getElementById("mensaje").textContent =
+          "No se pudieron cargar los materiales";
+        return;
+      }
+
+      const productos = await response.json();
+      const tbody = document.getElementById("productos");
+      tbody.replaceChildren();
+
+      for (const p of productos) {
+        const fila = document.createElement("tr");
+
+        for (const valor of [p.id, p.nombre, "$" + Number(p.precio).toFixed(2)]) {
+          const celda = document.createElement("td");
+          celda.textContent = valor;
+          fila.appendChild(celda);
+        }
+
+        tbody.appendChild(fila);
+      }
+    }
+
+    document.getElementById("productoForm").addEventListener("submit", async e => {
+      e.preventDefault();
+
+      const form = new FormData(e.target);
+      const response = await fetch("/api/productos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(form))
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        e.target.reset();
+        document.getElementById("mensaje").textContent = "";
+        await cargarProductos();
+      } else {
+        document.getElementById("mensaje").textContent =
+          data.error || "Error al guardar";
+      }
+    });
+
+    document.getElementById("salir").addEventListener("click", async () => {
+      await fetch("/api/logout", { method: "POST" });
+      location.replace("/");
+    });
+
+    (async () => {
+      const response = await fetch("/api/session");
+
+      if (!response.ok) {
+        location.replace("/");
+        return;
+      }
+
+      await cargarProductos();
+    })();
+  </script>
+</body>
+</html>
